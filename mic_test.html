@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>בודק מיקרופון</title>
+  <style>
+    #micLevel {
+      width: 80%;
+      height: 30px;
+      background: lightgray;
+      margin: 20px auto;
+      border-radius: 15px;
+      overflow: hidden;
+    }
+    #micLevelInner {
+      height: 100%;
+      width: 0%;
+      background: green;
+      transition: width 0.1s;
+    }
+    p {
+      text-align: center;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h1 style="text-align: center;">בדיקת מיקרופון</h1>
+  <p>דבר או מחא כפיים — ודוק אם הפס הירוק משתנה</p>
+  <div id="micLevel">
+    <div id="micLevelInner"></div>
+  </div>
+
+  <script>
+    const levelBar = document.getElementById("micLevelInner");
+
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+      const context = new (window.AudioContext || window.webkitAudioContext)();
+      const source = context.createMediaStreamSource(stream);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 512;
+      const timeData = new Uint8Array(analyser.fftSize);
+
+      source.connect(analyser);
+
+      function update() {
+        analyser.getByteTimeDomainData(timeData);
+        let sum = 0;
+        for (let i = 0; i < timeData.length; i++) {
+          sum += Math.abs(timeData[i] - 128);
+        }
+        let volume = sum / timeData.length;
+        let percent = Math.min(100, volume * 3); // scale visually
+        levelBar.style.width = percent + "%";
+        requestAnimationFrame(update);
+      }
+
+      update();
+    }).catch(err => {
+      alert("שגיאה בגישה למיקרופון: " + err);
+    });
+  </script>
+</body>
+</html>
