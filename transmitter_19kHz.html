@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>שידור קול (19kHz)</title>
+</head>
+<body>
+  <h1>שידור תדר 19000Hz</h1>
+  <div style="font-size: 50px;">🔊</div>
+  <button onclick="toggle()">הפעל / עצור</button>
+
+  <script>
+    let context = new (window.AudioContext || window.webkitAudioContext)();
+    let oscillator = null;
+    let isPlaying = false;
+
+    function toggle() {
+      if (!isPlaying) {
+        oscillator = context.createOscillator();
+        oscillator.frequency.setValueAtTime(19000, context.currentTime);
+        oscillator.connect(context.destination);
+        oscillator.start();
+        isPlaying = true;
+      } else {
+        oscillator.stop();
+        oscillator.disconnect();
+        isPlaying = false;
+      }
+    }
+  </script>
+</body>
+</html>
