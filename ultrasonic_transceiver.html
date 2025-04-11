@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ultrasonic Transceiver</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    select, button { font-size: 18px; margin: 10px; padding: 5px 10px; }
+    #micStatus, #freqIndicator {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      margin: 20px auto;
+    }
+    #micStatus { background-color: lightgray; }
+    #freqIndicator { background-color: gray; }
+  </style>
+</head>
+<body>
+  <h1>Ultrasonic Transceiver</h1>
+  <p>Select a frequency to transmit and detect:</p>
+  <select id="freqSelect">
+    <option value="1000">1000 Hz</option>
+    <option value="4000">4000 Hz</option>
+    <option value="10000">10000 Hz</option>
+    <option value="15000">15000 Hz</option>
+    <option value="18000">18000 Hz</option>
+    <option value="19000" selected>19000 Hz</option>
+    <option value="20000">20000 Hz</option>
+  </select>
+  <br>
+  <button onclick="toggle()">Transmit & Listen</button>
+  <div>
+    <div>Mic Input:</div>
+    <div id="micStatus"></div>
+    <div>Freq Match:</div>
+    <div id="freqIndicator"></div>
+  </div>
+
+  <script>
+    let context = new (window.AudioContext || window.webkitAudioContext)();
+    let oscillator = null;
+    let isRunning = false;
+    let analyser, source;
+    const micStatus = document.getElementById("micStatus");
+    const freqIndicator = document.getElementById("freqIndicator");
+    const freqSelect = document.getElementById("freqSelect");
+
+    const freqThreshold = 0.01;
+    const micThreshold = 10;
+
+    function getFreqIndex(freq, sampleRate, fftSize) {
+      const step = sampleRate / fftSize;
+      return Math.round(freq / step);
+    }
+
+    async function toggle() {
+      if (isRunning) {
+        oscillator.stop();
+        oscillator.disconnect();
+        isRunning = false;
+        return;
+      }
+
+      const freq = parseInt(freqSelect.value);
+
+      oscillator = context.createOscillator();
+      oscillator.frequency.setValueAtTime(freq, context.currentTime);
+      oscillator.connect(context.destination);
+      oscillator.start();
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        source = context.createMediaStreamSource(stream);
+        analyser = context.createAnalyser();
+        analyser.fftSize = 2048;
+        const bufferLength = analyser.frequencyBinCount;
+        const freqData = new Uint8Array(bufferLength);
+        const timeData = new Uint8Array(analyser.fftSize);
+
+        source.connect(analyser);
+
+        const index = getFreqIndex(freq, context.sampleRate, analyser.fftSize);
+
+        function detect() {
+          analyser.getByteFrequencyData(freqData);
+          analyser.getByteTimeDomainData(timeData);
+
+          let micLevel = 0;
+          for (let i = 0; i < timeData.length; i++) {
+            micLevel += Math.abs(timeData[i] - 128);
+          }
+          micLevel = micLevel / timeData.length;
+          micStatus.style.backgroundColor = micLevel > micThreshold ? "blue" : "lightgray";
+
+          const level = freqData[index] / 255;
+          freqIndicator.style.backgroundColor = level > freqThreshold ? "green" : "gray";
+
+          if (isRunning) requestAnimationFrame(detect);
+        }
+
+        isRunning = true;
+        detect();
+
+      } catch (err) {
+        alert("Microphone access error: " + err);
+      }
+    }
+  </script>
+</body>
+</html>
